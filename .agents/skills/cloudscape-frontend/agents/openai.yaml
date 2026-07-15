@@ -1,0 +1,4 @@
+interface:
+  display_name: "Cloudscape Frontend"
+  short_description: "Build and review production Cloudscape React interfaces"
+  brand_color: "#0972D3"
