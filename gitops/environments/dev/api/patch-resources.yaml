@@ -1,0 +1,15 @@
+# dev 환경 리소스 조정. 오늘은 health만 뜨면 되므로 DB/S3/SQS 환경변수는 넣지 않는다.
+# DATABASE_URL이 없으면 api는 DB 없이 뜨고 /health/ready가 통과한다.
+# RDS를 붙이는 단계에서 여기에 env를 추가한다.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api
+spec:
+  template:
+    spec:
+      containers:
+        - name: api
+          env:
+            - name: AWS_REGION
+              value: ap-northeast-2
