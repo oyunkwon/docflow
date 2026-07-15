@@ -1,0 +1,22 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# docflow 네임스페이스에 배포. base를 참조하고 이미지만 이 overlay에서 확정한다.
+namespace: docflow
+
+resources:
+  - ../../../base/api
+
+images:
+  - name: DOCFLOW_API_IMAGE
+    # newName: 내일 apply 후 shared의 ECR 주소로 확정한다.
+    # 형식: 676591241328.dkr.ecr.ap-northeast-2.amazonaws.com/docflow-api
+    newName: 676591241328.dkr.ecr.ap-northeast-2.amazonaws.com/docflow-api
+    # CI가 유일하게 건드리는 값. commit SHA로 교체된다.
+    newTag: placeholder
+
+patches:
+  - path: patch-resources.yaml
+    target:
+      kind: Deployment
+      name: api

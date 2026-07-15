@@ -81,3 +81,58 @@ module "eks" {
     }
   }
 }
+
+################################################################################
+# EKS Blueprints Addons — AWS Load Balancer Controller + metrics-server
+################################################################################
+
+module "eks_blueprints_addons" {
+  source  = "aws-ia/eks-blueprints-addons/aws"
+  version = "~> 1.0"
+
+  cluster_name      = module.eks.cluster_name
+  cluster_endpoint  = module.eks.cluster_endpoint
+  cluster_version   = module.eks.cluster_version
+  oidc_provider_arn = module.eks.oidc_provider_arn
+
+  # Ingress(alb ingressClass)를 위해 LB 컨트롤러, HPA/kubectl top을 위해 metrics-server.
+  # Karpenter/Prometheus 등 나머지는 켜지 않는다(범위 밖).
+  enable_aws_load_balancer_controller = true
+  enable_metrics_server               = true
+
+  # 노드가 준비된 뒤 애드온을 올린다.
+  depends_on = [module.eks]
+}
+
+################################################################################
+# ArgoCD 부트스트랩 (닭과 달걀: GitOps 엔진 자체는 Terraform이 설치)
+################################################################################
+
+resource "helm_release" "argocd" {
+  name             = "argo-cd"
+  repository       = "https://argoproj.github.io/argo-helm"
+  chart            = "argo-cd"
+  version          = var.argocd_chart_version
+  namespace        = "argocd"
+  create_namespace = true
+
+  # ArgoCD 서버는 LoadBalancer로 노출하지 않는다. ClusterIP + kubectl port-forward.
+  # ALB 하나를 아끼고 API 서버를 인터넷에 열지 않는다.
+  set = [
+    {
+      name  = "server.service.type"
+      value = "ClusterIP"
+    },
+  ]
+
+  # 애드온(특히 LB 컨트롤러)이 준비된 뒤 ArgoCD를 올린다.
+  depends_on = [module.eks_blueprints_addons]
+}
+
+# App of Apps 루트. ArgoCD 설치 후 root Application을 적용하면
+# 나머지(gitops/environments/dev)는 ArgoCD가 스스로 동기화한다.
+resource "kubectl_manifest" "argocd_root_app" {
+  yaml_body = file("${path.module}/../../../../gitops/bootstrap/root-application.yaml")
+
+  depends_on = [helm_release.argocd]
+}

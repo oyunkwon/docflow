@@ -15,3 +15,9 @@ variable "environment" {
   type        = string
   default     = "dev"
 }
+
+variable "argocd_chart_version" {
+  description = "argo-cd Helm chart version (argoproj.github.io/argo-helm)"
+  type        = string
+  default     = "7.7.11"
+}

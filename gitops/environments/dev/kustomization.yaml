@@ -1,0 +1,8 @@
+# App of Apps: root Application이 이 kustomization을 가리킨다.
+# 여기에는 각 컴포넌트의 ArgoCD Application만 나열한다(매니페스트 본체가 아님).
+# frontend/worker는 준비되면 아래에 Application을 추가한다.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - api-application.yaml

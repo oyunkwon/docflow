@@ -1,0 +1,24 @@
+# api Application. root Application이 이 디렉터리를 가리키므로
+# 여기에 나열된 Application들을 ArgoCD가 생성한다(App of Apps).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: api
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/oyunkwon/docflow.git
+    targetRevision: main
+    path: gitops/environments/dev/api
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: docflow
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

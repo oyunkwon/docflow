@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from . import aws
 from .config import settings
-from .db import get_db, init_db
+from .db import db_enabled, get_db, init_db
 from .models import Document
 from .schemas import (
     DocumentOut,
@@ -40,17 +40,31 @@ def live():
 
 
 @app.get("/health/ready")
-def ready(db: Session = Depends(get_db)):
-    """DB 연결이 되어야 ready. 큐/버킷은 지연 실패를 허용한다."""
+def ready():
+    """DB가 설정된 경우에만 연결을 검사한다.
+
+    DATABASE_URL이 없으면(=아직 RDS 미연결 배포) DB 없이도 ready로 응답한다.
+    큐/버킷은 지연 실패를 허용한다.
+    """
+    if not db_enabled():
+        return {"status": "ready", "db": "disabled"}
     try:
-        db.execute(select(1))
+        with next(get_db()) as db:
+            db.execute(select(1))
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=503, detail=f"db not ready: {exc}")
-    return {"status": "ready"}
+    return {"status": "ready", "db": "ok"}
+
+
+def require_db():
+    """문서 라우트용 의존성. DB 미설정이면 503으로 명확히 거부한다."""
+    if not db_enabled():
+        raise HTTPException(status_code=503, detail="database not configured")
+    yield from get_db()
 
 
 @app.post("/documents/upload-url", response_model=UploadUrlResponse)
-def create_upload_url(req: UploadUrlRequest, db: Session = Depends(get_db)):
+def create_upload_url(req: UploadUrlRequest, db: Session = Depends(require_db)):
     doc_id = str(uuid.uuid4())
     s3_key = f"uploads/{doc_id}/{req.filename}"
 
@@ -63,7 +77,7 @@ def create_upload_url(req: UploadUrlRequest, db: Session = Depends(get_db)):
 
 
 @app.post("/documents/{doc_id}/complete", response_model=DocumentOut)
-def complete_upload(doc_id: str, db: Session = Depends(get_db)):
+def complete_upload(doc_id: str, db: Session = Depends(require_db)):
     doc = db.get(Document, doc_id)
     if doc is None:
         raise HTTPException(status_code=404, detail="document not found")
@@ -73,13 +87,13 @@ def complete_upload(doc_id: str, db: Session = Depends(get_db)):
 
 
 @app.get("/documents", response_model=list[DocumentOut])
-def list_documents(db: Session = Depends(get_db)):
+def list_documents(db: Session = Depends(require_db)):
     rows = db.execute(select(Document).order_by(Document.created_at.desc())).scalars()
     return [DocumentOut.model_validate(r) for r in rows]
 
 
 @app.get("/documents/{doc_id}", response_model=DocumentOut)
-def get_document(doc_id: str, db: Session = Depends(get_db)):
+def get_document(doc_id: str, db: Session = Depends(require_db)):
     doc = db.get(Document, doc_id)
     if doc is None:
         raise HTTPException(status_code=404, detail="document not found")

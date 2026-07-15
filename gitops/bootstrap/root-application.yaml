@@ -1,0 +1,25 @@
+# App of Apps 루트. Terraform이 ArgoCD 설치 후 이 Application 하나만 적용한다.
+# 이후 gitops/environments/dev 아래의 모든 Application을 ArgoCD가 스스로 동기화한다.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: root
+  namespace: argocd
+  # 부트스트랩 리소스가 실수로 지워지지 않도록.
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/oyunkwon/docflow.git
+    targetRevision: main
+    path: gitops/environments/dev
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
