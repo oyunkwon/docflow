@@ -1,0 +1,80 @@
+# 로컬 개발용. 운영 배포는 gitops/가 담당한다.
+# S3/SQS는 LocalStack, PostgreSQL은 컨테이너.
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: docflow
+      POSTGRES_PASSWORD: docflow
+      POSTGRES_DB: docflow
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U docflow"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
+  localstack:
+    image: localstack/localstack:3.8
+    ports:
+      - "4566:4566"
+    environment:
+      SERVICES: s3,sqs
+      DEBUG: "0"
+      # presigned URL은 브라우저(localhost)가 접근하므로 호스트를 강제한다.
+      HOSTNAME_EXTERNAL: localhost
+      # 큐 URL을 경로 기반으로. host(localstack)를 무시하고 경로로 큐를 찾게 한다.
+      SQS_ENDPOINT_STRATEGY: path
+    volumes:
+      - ./apps/localstack/init:/etc/localstack/init
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4566/_localstack/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  api:
+    build: ./apps/api
+    depends_on:
+      postgres:
+        condition: service_healthy
+      localstack:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg://docflow:docflow@postgres:5432/docflow
+      S3_BUCKET: docflow-dev-documents
+      SQS_QUEUE_URL: http://localstack:4566/000000000000/docflow-dev-jobs
+      AWS_REGION: ap-northeast-2
+      # LocalStack 내부 접근 (컨테이너 → localstack)
+      AWS_ENDPOINT_URL: http://localstack:4566
+      # presigned URL이 서명될 host (브라우저 → localhost)
+      S3_PUBLIC_ENDPOINT: http://localhost:4566
+      # boto3 기본 자격증명 체인이 요구하는 더미 값 (LocalStack은 검증 안 함)
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+    ports:
+      - "8000:8000"
+
+  worker:
+    build: ./apps/worker
+    depends_on:
+      postgres:
+        condition: service_healthy
+      localstack:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg://docflow:docflow@postgres:5432/docflow
+      S3_BUCKET: docflow-dev-documents
+      SQS_QUEUE_URL: http://localstack:4566/000000000000/docflow-dev-jobs
+      AWS_REGION: ap-northeast-2
+      AWS_ENDPOINT_URL: http://localstack:4566
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+
+  frontend:
+    build: ./apps/frontend
+    depends_on:
+      - api
+    ports:
+      - "8080:80"
