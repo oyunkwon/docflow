@@ -100,6 +100,24 @@ module "eks_blueprints_addons" {
   enable_aws_load_balancer_controller = true
   enable_metrics_server               = true
 
+  # LB 컨트롤러 설정.
+  # - vpcId 명시: 안 주면 컨트롤러가 IMDS로 VPC를 조회하는데, EKS 노드는
+  #   http_put_response_hop_limit=1(IMDSv2, Pod 차단)이라 401 → CrashLoopBackOff.
+  #   Pod Identity를 쓰므로 IMDS 차단은 옳은 방향이고, VPC ID는 직접 주입한다.
+  # - chart_version: 모듈 기본값(1.7.1=앱 v2.7.1, 2024-02)은 오래됐다.
+  #   1.35 클러스터에 맞춰 최신 안정판으로 올린다(1.13.3 = 앱 v2.17.1).
+  # - wait: 웹훅이 준비될 때까지 기다려 이후 Ingress 생성 경쟁 조건을 막는다.
+  aws_load_balancer_controller = {
+    chart_version = "1.13.3"
+    wait          = true
+    set = [
+      {
+        name  = "vpcId"
+        value = module.vpc.vpc_id
+      },
+    ]
+  }
+
   # 노드가 준비된 뒤 애드온을 올린다.
   depends_on = [module.eks]
 }
