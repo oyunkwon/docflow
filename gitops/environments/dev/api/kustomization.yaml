@@ -13,7 +13,7 @@ images:
     # 형식: 676591241328.dkr.ecr.ap-northeast-2.amazonaws.com/docflow-api
     newName: 676591241328.dkr.ecr.ap-northeast-2.amazonaws.com/docflow-api
     # CI가 유일하게 건드리는 값. commit SHA로 교체된다.
-    newTag: 3db489a
+    newTag: db5c3fc
 
 patches:
   - path: patch-resources.yaml
