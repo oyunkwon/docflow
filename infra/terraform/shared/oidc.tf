@@ -3,12 +3,17 @@
 
 data "aws_caller_identity" "current" {}
 
+# GitHub OIDC 엔드포인트의 실제 인증서에서 thumbprint를 동적으로 계산한다.
+# 하드코딩하면 GitHub이 인증서를 갱신할 때 STS가 토큰을 거부한다.
+data "tls_certificate" "github" {
+  url = "https://token.actions.githubusercontent.com/.well-known/openid-configuration"
+}
+
 # GitHub의 OIDC IdP. 계정당 하나만 존재할 수 있다.
 resource "aws_iam_openid_connect_provider" "github" {
-  url            = "https://token.actions.githubusercontent.com"
-  client_id_list = ["sts.amazonaws.com"]
-  # GitHub OIDC 루트 CA 지문. AWS가 IdP 검증에 쓴다.
-  thumbprint_list = ["6938fd4d98bab03faadb97b34396831e3780aea1"]
+  url             = "https://token.actions.githubusercontent.com"
+  client_id_list  = ["sts.amazonaws.com"]
+  thumbprint_list = [data.tls_certificate.github.certificates[0].sha1_fingerprint]
 }
 
 data "aws_iam_policy_document" "github_actions_assume" {
@@ -28,10 +33,13 @@ data "aws_iam_policy_document" "github_actions_assume" {
     }
 
     # main 브랜치의 워크플로우만 이 역할을 assume할 수 있다.
+    # 이 계정/레포는 GitHub의 immutable unique ID 옵션이 켜져 있어 sub가
+    # 'repo:<owner>@<ownerId>/<repo>@<repoId>:ref:...' 형식으로 온다.
+    # 숫자 ID는 하드코딩하지 않고 와일드카드로 두되, owner/repo/브랜치는 고정한다.
     condition {
-      test     = "StringEquals"
+      test     = "StringLike"
       variable = "token.actions.githubusercontent.com:sub"
-      values   = ["repo:oyunkwon/docflow:ref:refs/heads/main"]
+      values   = ["repo:oyunkwon*/docflow*:ref:refs/heads/main"]
     }
   }
 }

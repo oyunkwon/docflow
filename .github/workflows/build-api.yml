@@ -41,16 +41,6 @@ jobs:
           ruff check .
           pytest -q
 
-      - name: Debug OIDC claims (임시)
-        run: |
-          TOKEN=$(curl -sS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
-            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=sts.amazonaws.com" | python3 -c "import sys,json;print(json.load(sys.stdin)['value'])")
-          PAYLOAD=$(echo "$TOKEN" | cut -d. -f2)
-          # base64url 패딩 보정 후 디코드
-          PAD=$(( (4 - ${#PAYLOAD} % 4) % 4 ))
-          PAYLOAD="$PAYLOAD$(printf '=%.0s' $(seq 1 $PAD))"
-          echo "$PAYLOAD" | tr '_-' '/+' | base64 -d 2>/dev/null | python3 -c "import sys,json;d=json.load(sys.stdin);print('sub=',repr(d.get('sub')));print('aud=',repr(d.get('aud')));print('iss=',repr(d.get('iss')))"
-
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
