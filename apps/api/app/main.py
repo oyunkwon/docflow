@@ -1,5 +1,6 @@
 import uuid
 from contextlib import asynccontextmanager
+import os
 
 from fastapi import APIRouter, Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -102,6 +103,11 @@ def get_document(doc_id: str, db: Session = Depends(require_db)):
     if doc is None:
         raise HTTPException(status_code=404, detail="document not found")
     return DocumentOut.model_validate(doc)
+
+
+@router.get("/version")
+def version():
+    return {"version": os.environ.get("APP_VERSION", "unknown")}
 
 
 app.include_router(router)
