@@ -111,3 +111,5 @@ def version():
 
 
 app.include_router(router)
+
+# ci: trigger build to debug OIDC claims
