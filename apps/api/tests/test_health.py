@@ -22,7 +22,6 @@ def test_health_ready_without_db():
     assert resp.status_code == 200
     assert resp.json()["db"] == "disabled"
 
-
 def test_documents_requires_db():
     # DB 미설정이면 문서 라우트는 503으로 명확히 거부한다.
     resp = client.get("/api/documents")
