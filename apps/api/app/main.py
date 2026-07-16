@@ -7,7 +7,6 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from . import aws
-from .config import settings
 from .db import db_enabled, get_db, init_db
 from .models import Document
 from .schemas import (
@@ -57,7 +56,7 @@ def ready():
         with next(get_db()) as db:
             db.execute(select(1))
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(status_code=503, detail=f"db not ready: {exc}")
+        raise HTTPException(status_code=503, detail=f"db not ready: {exc}") from exc
     return {"status": "ready", "db": "ok"}
 
 
