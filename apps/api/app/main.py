@@ -1,7 +1,7 @@
 import uuid
 from contextlib import asynccontextmanager
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import APIRouter, Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -33,13 +33,18 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# 모든 라우트를 /api 아래에 둔다.
+# ALB는 경로를 자르지 않고 그대로 전달하므로(/api/health/ready → 앱도 /api/health/ready),
+# 앱이 /api prefix에서 직접 서빙해야 한다. 로컬 nginx도 prefix를 자르지 않고 넘긴다.
+router = APIRouter(prefix="/api")
 
-@app.get("/health/live")
+
+@router.get("/health/live")
 def live():
     return {"status": "ok"}
 
 
-@app.get("/health/ready")
+@router.get("/health/ready")
 def ready():
     """DB가 설정된 경우에만 연결을 검사한다.
 
@@ -63,7 +68,7 @@ def require_db():
     yield from get_db()
 
 
-@app.post("/documents/upload-url", response_model=UploadUrlResponse)
+@router.post("/documents/upload-url", response_model=UploadUrlResponse)
 def create_upload_url(req: UploadUrlRequest, db: Session = Depends(require_db)):
     doc_id = str(uuid.uuid4())
     s3_key = f"uploads/{doc_id}/{req.filename}"
@@ -76,7 +81,7 @@ def create_upload_url(req: UploadUrlRequest, db: Session = Depends(require_db)):
     return UploadUrlResponse(document_id=doc_id, upload_url=url, s3_key=s3_key)
 
 
-@app.post("/documents/{doc_id}/complete", response_model=DocumentOut)
+@router.post("/documents/{doc_id}/complete", response_model=DocumentOut)
 def complete_upload(doc_id: str, db: Session = Depends(require_db)):
     doc = db.get(Document, doc_id)
     if doc is None:
@@ -86,15 +91,18 @@ def complete_upload(doc_id: str, db: Session = Depends(require_db)):
     return DocumentOut.model_validate(doc)
 
 
-@app.get("/documents", response_model=list[DocumentOut])
+@router.get("/documents", response_model=list[DocumentOut])
 def list_documents(db: Session = Depends(require_db)):
     rows = db.execute(select(Document).order_by(Document.created_at.desc())).scalars()
     return [DocumentOut.model_validate(r) for r in rows]
 
 
-@app.get("/documents/{doc_id}", response_model=DocumentOut)
+@router.get("/documents/{doc_id}", response_model=DocumentOut)
 def get_document(doc_id: str, db: Session = Depends(require_db)):
     doc = db.get(Document, doc_id)
     if doc is None:
         raise HTTPException(status_code=404, detail="document not found")
     return DocumentOut.model_validate(doc)
+
+
+app.include_router(router)

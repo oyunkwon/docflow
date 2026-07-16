@@ -5,7 +5,7 @@ metadata:
   annotations:
     alb.ingress.kubernetes.io/scheme: internet-facing
     alb.ingress.kubernetes.io/target-type: ip
-    alb.ingress.kubernetes.io/healthcheck-path: /health/ready
+    alb.ingress.kubernetes.io/healthcheck-path: /api/health/ready
     # 여러 Ingress가 하나의 ALB를 공유하도록 group.name을 맞춘다.
     alb.ingress.kubernetes.io/group.name: docflow
 spec:
