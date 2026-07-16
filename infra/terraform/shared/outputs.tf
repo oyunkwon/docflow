@@ -17,3 +17,8 @@ output "frontend_repository_url" {
   description = "ECR URL for docflow-frontend"
   value       = aws_ecr_repository.this["docflow-frontend"].repository_url
 }
+
+output "github_actions_role_arn" {
+  description = "IAM role ARN for GitHub Actions OIDC (ECR push)"
+  value       = aws_iam_role.github_actions.arn
+}

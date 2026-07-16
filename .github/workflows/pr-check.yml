@@ -1,0 +1,34 @@
+name: pr-check-api
+
+# api 변경 PR에서 린트/테스트/빌드 검증. AWS 자격증명 불필요(push 안 함).
+on:
+  pull_request:
+    paths:
+      - "apps/api/**"
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/api
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dev deps
+        run: pip install -r requirements-dev.txt
+
+      - name: Ruff
+        run: ruff check .
+
+      - name: Pytest
+        env:
+          DATABASE_URL: ""
+        run: pytest -q
+
+      - name: Docker build (검증만, push 안 함)
+        run: docker build --platform linux/amd64 -t docflow-api:pr .

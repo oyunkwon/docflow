@@ -1,0 +1,5 @@
+# CI 전용(테스트/린트). 런타임 이미지에는 넣지 않는다.
+-r requirements.txt
+ruff==0.8.4
+pytest==8.3.4
+httpx==0.28.1
